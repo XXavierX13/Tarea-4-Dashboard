@@ -1,0 +1,115 @@
+---
+title: "Análisis Interactivo de Emisiones de CO₂: Gráficos, Tabla y Mapa Espacial"
+subtitle: "por Xavier Calderón Aguilar"
+format:
+  dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    source: embed
+editor: visual
+---
+
+```{r, echo=FALSE}
+mis_datos <- read.csv("co2_emissions_kt_by_country.csv")
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plotly)
+library(DT)
+library(tmap)
+library(sf)
+library(raster)
+library(dplyr)
+
+
+mis_datos <- read.csv("co2_emissions_kt_by_country.csv")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+grafico1 <- ggplot(mis_datos, aes(x = year, y = value, color = country_name)) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  labs(title = "Gráfico 1: Emisiones de CO2 por país y año (Gráfico de Puntos)",
+       x = "Año",
+       y = "Emisiones (kt)")
+
+ggplotly(grafico1)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(mis_datos, aes(x = year, y = value, color = country_name)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Gráfico 2: Emisiones de CO2 por país y año (Gráfico de líneas)",
+       x = "Año",
+       y = "Emisiones (kt)")
+
+ggplotly(p)
+
+
+```
+
+## Tabla: Emisiones de CO2 por País y Año
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(DT)
+
+datatable(mis_datos,
+          options = list(pageLength = 10,  # filas por página
+                         autoWidth = TRUE,
+                         searching = TRUE,
+                         paging = TRUE),
+          filter = 'top',
+          rownames = FALSE)
+
+
+```
+
+## Mapa Interactivo: Emisiones de CO2 por país en 2019
+
+```{r}
+library(tmap)
+library(sf)
+library(dplyr)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+tmap_mode("view")
+
+co2 <- read.csv("co2_emissions_kt_by_country.csv")
+year_sel <- 2019
+co2_2019 <- co2 %>% filter(year == year_sel)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world <- world %>% mutate(name_lower = tolower(name))
+co2_2019 <- co2_2019 %>% mutate(country_lower = tolower(country_name))
+
+world_co2 <- left_join(world, co2_2019, by = c("name_lower" = "country_lower"))
+
+world_co2$value <- as.numeric(world_co2$value)
+
+mapa <- 
+  tm_shape(world_co2) +
+  tm_polygons(
+    fill = "value",
+    fill_alpha = 0.7,
+    fill.scale = tm_scale_intervals(
+      style = "quantile",
+      values = "brewer.reds",
+      value.na = "grey",
+      label.na = "Sin datos"
+    ),
+    fill.legend = tm_legend(title = paste("Emisiones CO2 (kt) -", year_sel)),
+    col = "black",
+    col_alpha = 0.3
+  ) +
+  tm_borders() +
+  tm_basemap("OpenStreetMap") +
+  tm_scalebar(position = c("left", "bottom")) +
+  tm_layout(legend.outside = TRUE)
+
+mapa
+```
